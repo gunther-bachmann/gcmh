@@ -67,6 +67,10 @@ time the last non idle garbage collection time."
 (defvar gcmh-idle-timer nil
   "Idle timer for triggering GC.")
 
+(defcustom gcmh-auto-idle-max-delay 4
+  "Max. idle time in auto mode to wait in seconds before triggering GC."
+  :type 'number)
+
 (defmacro gcmh-time (&rest body)
   "Measure and return the time it takes to evaluate BODY."
   `(let ((time (current-time)))
@@ -85,7 +89,8 @@ This is to be used with the `pre-command-hook'."
   "Register a timer to run `gcmh-idle-garbage-collect'.
 Cancel the previous one if present."
   (let ((idle-t (if (eq gcmh-idle-delay 'auto)
-		    (* gcmh-auto-idle-delay-factor gcmh-last-gc-time)
+		    (min gcmh-auto-idle-max-delay
+                         (* gcmh-auto-idle-delay-factor gcmh-last-gc-time))
 		  gcmh-idle-delay)))
     (when (timerp gcmh-idle-timer)
       (cancel-timer gcmh-idle-timer))

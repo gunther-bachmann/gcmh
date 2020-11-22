@@ -64,6 +64,14 @@ time the last non idle garbage collection time."
   "If t, print a message when garbage collecting."
   :type 'boolean)
 
+(defcustom gcmh-modeline-element '(:eval (format "GC: %.3fs" gcmh-last-gc-time))
+  "modeline to be shown for gcmh"
+  :type 'list)
+
+(defcustom gcmh-use-modeline t
+  "use modeline instead of reporting message"
+  :type 'boolean)
+
 (defvar gcmh-idle-timer nil
   "Idle timer for triggering GC.")
 
@@ -101,14 +109,24 @@ Cancel the previous one if present."
   "Run garbage collection after `gcmh-idle-delay'."
   (if gcmh-verbose
       (progn
-	(message "Garbage collecting...")
+        (unless gcmh-use-modeline
+	  (message "Garbage collecting..."))
 	(condition-case-unless-debug e
-	    (message "Garbage collecting...done (%.3fs)"
-		     (setf gcmh-last-gc-time (gcmh-time (garbage-collect))))
+            (setf gcmh-last-gc-time (gcmh-time (garbage-collect)))
+            (unless gcmh-use-modeline
+	      (message "Garbage collecting...done (%.3fs)"
+		       gcmh-last-gc-time))
 	  (error (message "Garbage collecting...failed")
 		 (signal (car e) (cdr e)))))
     (setf gcmh-last-gc-time (gcmh-time (garbage-collect))))
   (setf gc-cons-threshold gcmh-low-cons-threshold))
+
+(defun gcmh-add-modeline ()
+  (setq global-mode-string
+ (append global-mode-string (list gcmh-modeline-element))))
+
+(defun gcmh-remove-modeline ()
+  (setq global-mode-string (remove gcmh-modeline-element global-mode-string)))
 
 ;;;###autoload
 (define-minor-mode gcmh-mode
@@ -120,11 +138,14 @@ Cancel the previous one if present."
         (setf gc-cons-threshold gcmh-high-cons-threshold)
 	;; Release severe GC strategy before the user restart to working
 	(add-hook 'pre-command-hook #'gcmh-set-high-threshold)
-	(add-hook 'post-command-hook #'gcmh-register-idle-gc))
+	(add-hook 'post-command-hook #'gcmh-register-idle-gc)
+        (when gcmh-use-modeline
+          (gcmh-add-modeline)))
     (setf gc-cons-threshold gcmh-low-cons-threshold
           gcmh-idle-timer nil)
     (remove-hook 'pre-command-hook #'gcmh-set-high-threshold)
-    (remove-hook 'post-command-hook #'gcmh-register-idle-gc)))
+    (remove-hook 'post-command-hook #'gcmh-register-idle-gc)
+    (gcmh-remove-modeline)))
 
 (provide 'gcmh)
 
